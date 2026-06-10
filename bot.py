@@ -142,7 +142,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=keyboard(MAIN_MENU),
             )
     async def post_init(app):
-    await init_db()
+        await init_db()
 
 
 app = Application.builder().token(TOKEN).post_init(post_init).build()
