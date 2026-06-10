@@ -140,6 +140,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text
         "Поки що цей розділ у розробці.",
         reply_markup=keyboard(MAIN_MENU),
+            )
     async def post_init(app):
     await init_db()
 
