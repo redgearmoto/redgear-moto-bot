@@ -29,7 +29,7 @@ MAIN_MENU = [
     ["💰 Finanse", "🛵 Rental"],
     ["🔧 Serwis", "📦 Magazyn"],
     ["👤 Klienci", "🏍 Skutery"],
-    ["📊 Raport", "🤖 AI wpis"],
+    ["📊 Raport"],
     ["🤖 AI Mechanik", "🤖 AI wpis"],
 ]
 
