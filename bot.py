@@ -1071,19 +1071,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             result = await process_ai_entry(text)
 
-             if not result:
-                 result = "❌ AI nie zwróciło odpowiedzi."
-            
+            if not result:
+                result = "❌ AI nie zwróciło odpowiedzi."
+
             await update.message.reply_text(
                 result,
-                reply_markup=keyboard(MAIN_MENU),
+                reply_markup=keyboard(MAIN_MENU)
             )
+
             context.user_data.clear()
+            return
 
         except Exception as e:
             await update.message.reply_text(f"❌ Błąd AI:\n{e}")
+            return
 
-        return
 
     await update.message.reply_text(
         "Nie rozumiem. Wybierz przycisk z menu.",
