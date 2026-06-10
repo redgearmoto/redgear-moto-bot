@@ -1100,6 +1100,81 @@ async def process_ai_entry(text):
             "Dodaj OPENAI_API_KEY w Railway Variables."
         )
 
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    prompt = f"""
+Jesteś asystentem księgowo-operacyjnym firmy RedGear Moto.
+
+Przeanalizuj wpis użytkownika i zwróć TYLKO JSON.
+
+Tekst:
+{text}
+
+Format JSON:
+{{
+  "kierunek": "DOCHOD albo WYDATEK",
+  "typ": "income albo expense",
+  "kategoria": "SERWIS albo RENTAL albo MAGAZYN albo INNE",
+  "kwota": liczba,
+  "forma": "gotowka albo karta albo przelew albo nieznane",
+  "opis": "krótki opis",
+  "klient": "imię klienta albo pusty tekst",
+  "pojazd": "model/numer skutera albo pusty tekst"
+}}
+"""
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": "Zwracaj wyłącznie poprawny JSON bez markdown."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        temperature=0.1,
+    )
+
+    content = response.choices[0].message.content.strip()
+    data = json.loads(content)
+
+    kierunek = data.get("kierunek", "")
+    typ = data.get("typ", "")
+    kategoria = data.get("kategoria", "")
+    kwota = float(data.get("kwota", 0))
+    forma = data.get("forma", "")
+    opis = data.get("opis", text)
+    klient = data.get("klient", "")
+    pojazd = data.get("pojazd", "")
+
+    await add_finance(
+        kierunek=kierunek,
+        typ=typ,
+        kategoria=kategoria,
+        kwota=kwota,
+        opis=opis,
+        forma=forma,
+    )
+
+    if kategoria == "RENTAL":
+        return (
+            f"✅ AI zapisało rental\n\n"
+            f"{kierunek}\n"
+            f"{pojazd or opis}\n"
+            f"{kwota:.2f} zł"
+        )
+
+    return (
+        f"✅ AI zapisało wpis\n\n"
+        f"{kierunek}\n"
+        f"{kategoria}\n"
+        f"{kwota:.2f} zł\n"
+        f"{opis}"
+    )
+
 
 async def ask_ai_mechanic(question):
     if not OPENAI_API_KEY or OpenAI is None:
