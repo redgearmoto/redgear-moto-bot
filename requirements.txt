@@ -4,4 +4,4 @@ openai
 fpdf2
 Pillow
 gspread
-google-aut
+google-auth
