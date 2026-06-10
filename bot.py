@@ -1,4 +1,4 @@
-[10.06.2026 2:20] Oleksandr: import os
+import os
 import asyncpg
 from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup
@@ -164,8 +164,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Введи витрату:\n\n250 масло Motul")
         return
 
-    if text == "💼 Баланс":
-[10.06.2026 2:20] Oleksandr: income, expense, balance = await get_balance()
+    if text == "💼 Баланс":income, expense, balance = 
+        await get_balance()
         await update.message.reply_text(
             f"💼 Баланс RedGear Moto\n\n"
             f"Доходи: {income:.2f} zł\n"
