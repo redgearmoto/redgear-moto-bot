@@ -897,7 +897,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "new_service":
         try:
             p = [x.strip() for x in text.split(";")]
-            if len(p) != 12:
+            if len(p) != 16:
                 raise ValueError("Musi być 12 pól oddzielonych średnikiem.")
 
             klient, telefon, pojazd, rej, vin, przebieg, usluga, czesci, robocizna, forma, rekomendacje, uwagi = p
