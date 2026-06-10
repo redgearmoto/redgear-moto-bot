@@ -30,6 +30,7 @@ MAIN_MENU = [
     ["🔧 Serwis", "📦 Magazyn"],
     ["👤 Klienci", "🏍 Skutery"],
     ["📊 Raport", "🤖 AI wpis"],
+    ["🤖 AI Mechanik", "🤖 AI wpis"],
 ]
 
 FINANCE_MENU = [
@@ -223,6 +224,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{COMPANY_NAME} Assistant 🏍️\n\nWybierz dział:",
         reply_markup=keyboard(MAIN_MENU),
     )
+
+
+async def ask_ai_mechanic(question):
+    if not OPENAI_API_KEY or OpenAI is None:
+        return "AI nie jest skonfigurowane."
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Jesteś AI mechanikiem motocyklowym dla RedGear Moto. "
+                    "Odpowiadaj po polsku, konkretnie i technicznie. "
+                    "Podawaj możliwe przyczyny, kolejność diagnostyki, narzędzia i ryzyka. "
+                    "Nie zgaduj numerów części, jeśli nie masz pewności."
+                )
+            },
+            {"role": "user", "content": question}
+        ],
+        temperature=0.2,
+    )
+
+    return response.choices[0].message.content
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -650,7 +677,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Zrobiłem serwis Yamaha TDM900 za 450 zł"
         )
         return
-
+        
+    if text == "🤖 AI Mechanik":
+        context.user_data["mode"] = "ai_mechanic"
+        await update.message.reply_text(
+            "Opisz problem motocykla:\n\n"
+            "Przykład:\n"
+            "Honda Transalp 700 ciężko odpala na zimnym silniku."
+        )
+        return
+        
     mode = context.user_data.get("mode")
 
     if mode in ["income", "expense"]:
@@ -678,6 +714,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
+    if mode == "ai_mechanic":
+        answer = await ask_ai_mechanic(text)
+        await update.message.reply_text(answer, reply_markup=keyboard(MAIN_MENU))
+        context.user_data.clear()
+        return
+           
     if mode == "new_client":
         try:
             p = [x.strip() for x in text.split(";")]
