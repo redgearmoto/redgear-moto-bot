@@ -192,24 +192,27 @@ async def add_finance(kierunek, typ, kategoria, kwota, opis, forma, source="BOT"
     conn = await get_db()
     await conn.execute("""
         INSERT INTO finance
-        (created_at, kierunek, typ, kategoria, kwota, opis, forma_platnosci, source)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-    """, datetime.now(), kierunek, typ, kategoria, kwota, opis, forma, source)
+        (created_at, kierunek, type, kategoria, amount, description, forma_platnosci)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)
+    """, datetime.now(), kierunek, typ, kategoria, kwota, opis, forma)
     await conn.close()
 
 
 async def get_balance():
     conn = await get_db()
+
     income = await conn.fetchval("""
-        SELECT COALESCE(SUM(kwota),0)
+        SELECT COALESCE(SUM(amount),0)
         FROM finance
-        WHERE typ='DOCHOD'
+        WHERE type IN ('DOCHOD', 'income')
     """)
+
     expense = await conn.fetchval("""
-        SELECT COALESCE(SUM(kwota),0)
+        SELECT COALESCE(SUM(amount),0)
         FROM finance
-        WHERE typ='WYDATEK'
+        WHERE type IN ('WYDATEK', 'expense')
     """)
+
     await conn.close()
     return income, expense, income - expense
 
