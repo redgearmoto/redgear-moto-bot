@@ -347,7 +347,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         await update.message.reply_text(msg)
         return
-            if text == "🔍 Szukaj klienta":
+    if text == "🔍 Szukaj klienta":
         context.user_data["mode"] = "search_client"
         await update.message.reply_text(
             "Wpisz imię, telefon albo numer rejestracyjny klienta:"
