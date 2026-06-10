@@ -667,6 +667,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    if text == "🤖 AI Mechanik":
+        context.user_data["mode"] = "ai_mechanic"
+        await update.message.reply_text(
+            "Opisz problem motocykla:\n\n"
+            "Przykład:\n"
+            "Honda Transalp 700 ciężko odpala na zimnym silniku."
+        )
+        return
+        
     if text == "🤖 AI wpis":
         context.user_data["mode"] = "ai_entry"
         await update.message.reply_text(
@@ -678,14 +687,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
         
-    if text == "🤖 AI Mechanik":
-        context.user_data["mode"] = "ai_mechanic"
-        await update.message.reply_text(
-            "Opisz problem motocykla:\n\n"
-            "Przykład:\n"
-            "Honda Transalp 700 ciężko odpala na zimnym silniku."
-        )
-        return
         
     mode = context.user_data.get("mode")
 
@@ -1049,7 +1050,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg)
         context.user_data.clear()
         return
+        
+    if mode == "ai_mechanic":
+        try:
+            answer = await ask_ai_mechanic(text)
 
+            await update.message.reply_text(
+                answer,
+                reply_markup=keyboard(MAIN_MENU)
+            )
+
+            context.user_data.clear()
+            return
+
+        except Exception as e:
+            await update.message.reply_text(f"❌ AI Mechanik:\n{e}")
+            return
+            
     if mode == "ai_entry":
         try:
             result = await process_ai_entry(text)
@@ -1077,6 +1094,33 @@ async def process_ai_entry(text):
             "AI nie jest jeszcze skonfigurowane.\n"
             "Dodaj OPENAI_API_KEY w Railway Variables."
         )
+
+
+async def ask_ai_mechanic(question):
+    if not OPENAI_API_KEY or OpenAI is None:
+        return "AI nie jest skonfigurowane."
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Jesteś doświadczonym mechanikiem motocykli. "
+                    "Odpowiadaj po polsku. "
+                    "Podawaj możliwe przyczyny awarii, kolejność diagnostyki i naprawy."
+                )
+            },
+            {
+                "role": "user",
+                "content": question
+            }
+        ]
+    )
+
+    return response.choices[0].message.content
 
     client = OpenAI(api_key=OPENAI_API_KEY)
 
