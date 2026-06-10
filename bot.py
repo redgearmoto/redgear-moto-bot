@@ -164,15 +164,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Введи витрату:\n\n250 масло Motul")
         return
 
-    if text == "💼 Баланс":income, expense, balance = 
-        await get_balance()
-        await update.message.reply_text(
-            f"💼 Баланс RedGear Moto\n\n"
-            f"Доходи: {income:.2f} zł\n"
-            f"Витрати: {expense:.2f} zł\n"
-            f"Баланс: {balance:.2f} zł"
-        )
-        return
+    if text == "💼 Баланс":
+
+    income, expense, balance = await get_balance()
+
+    await update.message.reply_text(
+        f"💼 Баланс RedGear Moto\n\n"
+        f"Доходи: {income:.2f} zł\n"
+        f"Витрати: {expense:.2f} zł\n"
+        f"Баланс: {balance:.2f} zł"
+    )
+
+    return
 
     if text == "➕ Новий клієнт":
         context.user_data["mode"] = "new_client"
