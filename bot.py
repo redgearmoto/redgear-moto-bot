@@ -1071,6 +1071,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             result = await process_ai_entry(text)
 
+             if not result:
+                 result = "❌ AI nie zwróciło odpowiedzi."
+            
             await update.message.reply_text(
                 result,
                 reply_markup=keyboard(MAIN_MENU),
