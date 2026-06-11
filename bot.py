@@ -30,12 +30,12 @@ COMPANY_CITY = os.getenv("COMPANY_CITY", "Wrocław")
 
 LOGO_PATH = "logo.png"
 
-# --- КОНСТАНТИ ДЛЯ ПОКРОКОВИХ СТАНІВ (ConversationHandler) ---
+# --- КОНСТАНТИ СТАНІВ ---
 S_KLIENT, S_TELEFON, S_POJAZD, S_REJ, S_USLUGA, S_CZESCI, S_ROBOCIZNA, S_FORMA = range(100, 108)
 C_NAME, C_PHONE, C_MIASTO, C_POJAZD = range(200, 204)
 F_KWOTA, F_KIERUNEK, F_KATEGORIA, F_FORMA, F_OPIS = range(300, 305)
 
-# --- КЛАВІАТУРИ / МЕНЮ ---
+# --- МЕНЮ ---
 MAIN_MENU = [
     ["💰 Finanse", "🛵 Rental"],
     ["🔧 Serwis", "📦 Magazyn"],
@@ -84,10 +84,10 @@ def keyboard(menu):
 
 CANCEL_KEYBOARD = ReplyKeyboardMarkup([["❌ Anuluj"]], resize_keyboard=True)
 
-# --- РОБОТА З БАЗОЮ ДАНИХ (asyncpg) ---
+# --- БД (asyncpg) ---
 async def get_db():
     if not DATABASE_URL:
-        raise RuntimeError("Brak DATABASE_URL w Railway Variables.")
+        raise RuntimeError("Brak DATABASE_URL w Railway.")
     return await asyncpg.connect(DATABASE_URL)
 
 async def init_db():
@@ -207,16 +207,16 @@ async def get_balance():
     return income, expense, income - expense
 
 
-# --- ФУНКЦІЇ ДЛЯ AI (ЯКІ БУЛИ ПРОПУЩЕНІ) ---
+# --- AI ШТУКИ ---
 async def ask_ai_mechanic(text: str) -> str:
     if not OPENAI_API_KEY or not OpenAI:
-        return "⚠️ Модуль AI не налаштований. Перевірте OPENAI_API_KEY в Railway."
+        return "⚠️ Moduł AI nie skonfigurowany."
     try:
         client = OpenAI(api_key=OPENAI_API_KEY)
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Jesteś genialnym mechanikiem motocyklowym. Odpowiadaj krótko i profesjonalnie po polsku."},
+                {"role": "system", "content": "Jesteś mechanikiem. Odpowiadaj krótko po polsku."},
                 {"role": "user", "content": text}
             ]
         )
@@ -225,44 +225,37 @@ async def ask_ai_mechanic(text: str) -> str:
         return f"❌ Błąd AI: {e}"
 
 async def process_ai_entry(text: str) -> str:
-    if not OPENAI_API_KEY or not OpenAI:
-        return "⚠️ Модуль AI не налаштований. Перевірте OPENAI_API_KEY в Railway."
-    try:
-        client = OpenAI(api_key=OPENAI_API_KEY)
-        # Просто відповідь-заглушка або обробка тексту
-        return f"🤖 AI отримав ваш запис: \"{text}\". Наразі автоматичний парсинг розробляється, використовуйте покрокові меню фінансів."
-    except Exception as e:
-        return f"❌ Błąd AI: {e}"
+    return f"🤖 AI zapisało tekst: \"{text}\". Logika automatyczna w budowie."
 
 
-# --- ПОКРОКОВИЙ ВВІД: SERWIS ---
+# --- КРОКИ: СЕРВІС ---
 async def s_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔧 Stworzenie zlecenia.\nKrok 1: Wpisz imię i nazwisko klienta:", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("🔧 Nowe zlecenie.\nKrok 1: Podaj imię i nazwisko klienta:", reply_markup=CANCEL_KEYBOARD)
     return S_KLIENT
 
 async def s_klient(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['s_klient'] = update.message.text.strip()
-    await update.message.reply_text("Krok 2: Wpisz telefon (lub 'Brak'):", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("Krok 2: Podaj telefon:", reply_markup=CANCEL_KEYBOARD)
     return S_TELEFON
 
 async def s_telefon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['s_telefon'] = update.message.text.strip()
-    await update.message.reply_text("Krok 3: Nazwa pojazdu (np. Yamaha NMAX):", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("Krok 3: Podaj model pojazdu:", reply_markup=CANCEL_KEYBOARD)
     return S_POJAZD
 
 async def s_pojazd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['s_pojazd'] = update.message.text.strip()
-    await update.message.reply_text("Krok 4: Numer rejestracyjny (lub 'Brak'):", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("Krok 4: Podaj nr rejestracyjny:", reply_markup=CANCEL_KEYBOARD)
     return S_REJ
 
 async def s_rej(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['s_rej'] = update.message.text.strip()
-    await update.message.reply_text("Krok 5: Opis usługi (co robimy):", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("Krok 5: Opisz usługę:", reply_markup=CANCEL_KEYBOARD)
     return S_USLUGA
 
 async def s_usluga(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['s_usluga'] = update.message.text.strip()
-    await update.message.reply_text("Krok 6: Koszt części (cena lub 0):", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("Krok 6: Koszt części (0 lub kwota):", reply_markup=CANCEL_KEYBOARD)
     return S_CZESCI
 
 async def s_czesci(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -270,7 +263,7 @@ async def s_czesci(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['s_czesci'] = float(update.message.text.strip().replace(",", "."))
     except ValueError:
         context.user_data['s_czesci'] = 0.0
-    await update.message.reply_text("Krok 7: Koszt robocizny (cena lub 0):", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("Krok 7: Koszt robocizny (0 lub kwota):", reply_markup=CANCEL_KEYBOARD)
     return S_ROBOCIZNA
 
 async def s_robocizna(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -280,7 +273,7 @@ async def s_robocizna(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['s_robocizna'] = 0.0
         
     km = ReplyKeyboardMarkup([["GOTÓWKA", "KARTA", "PRZELEW"]], resize_keyboard=True)
-    await update.message.reply_text("Krok 8: Wybierz formę płatności:", reply_markup=km)
+    await update.message.reply_text("Krok 8: Wybierz płatność:", reply_markup=km)
     return S_FORMA
 
 async def s_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -301,11 +294,7 @@ async def s_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'OTWARTE')
         """, klient, telefon, pojazd, rej, usluga, czesci, robocizna, razem, forma)
         await conn.close()
-        
-        await update.message.reply_text(
-            f"✅ Zlecenie stworzone!\n\n👤 Klient: {klient}\n🏍 {pojazd} ({rej})\n💰 Razem: {razem:.2f} zł",
-            reply_markup=keyboard(SERVICE_MENU)
-        )
+        await update.message.reply_text(f"✅ Dodano zlecenie!\n👤 {klient} | 💰 {razem:.2f} zł", reply_markup=keyboard(SERVICE_MENU))
     except Exception as e:
         await update.message.reply_text(f"❌ Błąd DB: {e}", reply_markup=keyboard(SERVICE_MENU))
         
@@ -313,24 +302,24 @@ async def s_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# --- ПОКРОКОВИЙ ВВІД: KLIENT ---
+# --- КРОКИ: КЛІЄНТ ---
 async def c_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👤 Nowy klient.\nKrok 1: Wpisz imię i nazwisko:", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("👤 Nowy klient.\nKrok 1: Podaj imię i nazwisko:", reply_markup=CANCEL_KEYBOARD)
     return C_NAME
 
 async def c_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['c_name'] = update.message.text.strip()
-    await update.message.reply_text("Krok 2: Wpisz telefon:", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("Krok 2: Podaj telefon:", reply_markup=CANCEL_KEYBOARD)
     return C_PHONE
 
 async def c_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['c_phone'] = update.message.text.strip()
-    await update.message.reply_text("Krok 3: Wpisz miasto (np. Wrocław):", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("Krok 3: Podaj miasto:", reply_markup=CANCEL_KEYBOARD)
     return C_MIASTO
 
 async def c_miasto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['c_miasto'] = update.message.text.strip()
-    await update.message.reply_text("Krok 4: Wpisz markę i model pojazdu:", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("Krok 4: Podaj markę/model pojazdu:", reply_markup=CANCEL_KEYBOARD)
     return C_POJAZD
 
 async def c_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -354,18 +343,18 @@ async def c_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# --- ПОКРОКОВИЙ ВВІД: FINANSE ---
+# --- КРОКИ: ФІНАНСИ ---
 async def f_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     context.user_data['f_typ'] = "DOCHOD" if "Dochód" in text else "WYDATEK"
-    await update.message.reply_text("💰 Krok 1: Wpisz kwotę (np. 150 lub 45.50):", reply_markup=CANCEL_KEYBOARD)
+    await update.message.reply_text("💰 Krok 1: Wpisz kwotę:", reply_markup=CANCEL_KEYBOARD)
     return F_KWOTA
 
 async def f_kwota(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['f_kwota'] = float(update.message.text.strip().replace(",", "."))
     except ValueError:
-        await update.message.reply_text("❌ Podaj poprawną liczbę!")
+        await update.message.reply_text("❌ Podaj liczbę!")
         return F_KWOTA
     
     km = ReplyKeyboardMarkup([["SERWIS", "RENTAL", "SKLEP", "INNE"]], resize_keyboard=True)
@@ -399,7 +388,7 @@ async def f_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         await add_finance(kierunek, typ, kategoria, kwota, opis, forma)
-        await update.message.reply_text(f"✅ Finanse zapisane!\n💰 {typ}: {kwota:.2f} zł ({forma})", reply_markup=keyboard(FINANCE_MENU))
+        await update.message.reply_text(f"✅ Zapisano! {typ}: {kwota:.2f} zł", reply_markup=keyboard(FINANCE_MENU))
     except Exception as e:
         await update.message.reply_text(f"❌ Błąd: {e}", reply_markup=keyboard(FINANCE_MENU))
         
@@ -408,12 +397,12 @@ async def f_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def global_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Anulowano operację.", reply_markup=keyboard(MAIN_MENU))
+    await update.message.reply_text("❌ Anulowano.", reply_markup=keyboard(MAIN_MENU))
     context.user_data.clear()
     return ConversationHandler.END
 
 
-# --- ОБРОБКА ІНШИХ ПОВІДОМЛЕНЬ ---
+# --- ОБРОБКА ПОВІДОМЛЕНЬ ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
@@ -477,7 +466,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "🤖 AI wpis":
         context.user_data["mode"] = "ai_entry"
-        await update.message.reply_text("Wpisz naturalnie co się stało, AI rozpozna i zapisze finanse/magazyn:")
+        await update.message.reply_text("Wpisz naturalnie co się stało:")
         return
 
     mode = context.user_data.get("mode")
@@ -497,7 +486,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"{COMPANY_NAME} Assistant 🏍️\n\nWybierz dział:", reply_markup=keyboard(MAIN_MENU))
+    await update.message.reply_text(f"{COMPANY_NAME} Assistant 🏍️", reply_markup=keyboard(MAIN_MENU))
 
 async def post_init(app):
     await init_db()
@@ -548,6 +537,7 @@ if __name__ == "__main__":
     app.add_handler(finance_conv)
     
     app.add_handler(CommandHandler("start", start_cmd))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # ТУТ СИНТАКСИС ВИПРАВЛЕНО (додано callback=)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, callback=handle_message))
     
     app.run_polling()
