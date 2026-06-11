@@ -1,6 +1,8 @@
 import os
 import json
 import asyncpg
+import gspread
+from google.oauth2.service_account import Credentials
 from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
@@ -16,6 +18,28 @@ try:
     from openai import OpenAI
 except Exception:
     OpenAI = None
+
+
+# --- КЛІЄНТ GOOGLE SHEETS ---
+def get_google_sheet():
+    try:
+        creds_json = os.environ.get("GOOGLE_SHEETS_CREDENTIALS")
+        if not creds_json:
+            print("Помилка: Змінна GOOGLE_SHEETS_CREDENTIALS не знайдена в Railway")
+            return None
+            
+        creds_data = json.loads(creds_json)
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        
+        creds = Credentials.from_service_account_info(creds_data, scopes=scope)
+        client = gspread.authorize(creds)
+        
+        spreadsheet_id = os.environ.get("SPREADSHEET_ID")
+        return client.open_by_key(spreadsheet_id)
+    except Exception as e:
+        print(f"Помилка підключення do Google Sheets: {e}")
+        return None
+
 
 TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -83,6 +107,7 @@ def keyboard(menu):
     return ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
 CANCEL_KEYBOARD = ReplyKeyboardMarkup([["❌ Anuluj"]], resize_keyboard=True)
+
 
 # --- БД (asyncpg) ---
 async def get_db():
@@ -193,11 +218,13 @@ async def init_db():
 
 async def add_finance(kierunek, typ, kategoria, kwota, opis, forma, source="BOT"):
     conn = await get_db()
-    await conn.execute("""
+    # Повертаємо згенерований ID для синхронізації з Excel
+    new_id = await conn.fetchval("""
         INSERT INTO finance (created_at, kierunek, typ, kategoria, kwota, opis, forma_platnosci, source)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
     """, datetime.now(), kierunek, typ, kategoria, kwota, opis, forma, source)
     await conn.close()
+    return new_id
 
 async def get_balance():
     conn = await get_db()
@@ -289,12 +316,39 @@ async def s_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         conn = await get_db()
-        await conn.execute("""
+        # Отримуємо ID створеного замовлення для Excel
+        order_id = await conn.fetchval("""
             INSERT INTO service_orders (klient, telefon, pojazd, rejestracja, usluga, czesci, robocizna, razem, forma_platnosci, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'OTWARTE')
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'OTWARTE') RETURNING id
         """, klient, telefon, pojazd, rej, usluga, czesci, robocizna, razem, forma)
         await conn.close()
-        await update.message.reply_text(f"✅ Dodano zlecenie!\n👤 {klient} | 💰 {razem:.2f} zł", reply_markup=keyboard(SERVICE_MENU))
+        
+        # --- СИНХРОНІЗАЦІЯ З EXCEL (Sheet: Zlecenia) ---
+        try:
+            sheet = get_google_sheet()
+            if sheet:
+                worksheet = sheet.worksheet("Zlecenia")
+                current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                row = [
+                    order_id,          # ID
+                    current_date,      # Data
+                    klient,            # Imię i nazwisko
+                    telefon,           # Telefon
+                    pojazd,            # Model
+                    "Motocykl",        # Typ
+                    "W pracy",         # Status
+                    czesci,            # Koszt części
+                    robocizna,         # Robocizna
+                    razem,             # Razem
+                    forma,             # Forma płatności
+                    usluga,            # Komentarz
+                    "Brak"             # Rekomendacje
+                ]
+                worksheet.append_row(row)
+        except Exception as sheet_err:
+            print(f"Помилка запису Zlecenia в Google Sheets: {sheet_err}")
+
+        await update.message.reply_text(f"✅ Dodano zlecenie do bazy i Excel!\n👤 {klient} | 💰 {razem:.2f} zł", reply_markup=keyboard(SERVICE_MENU))
     except Exception as e:
         await update.message.reply_text(f"❌ Błąd DB: {e}", reply_markup=keyboard(SERVICE_MENU))
         
@@ -330,12 +384,33 @@ async def c_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         conn = await get_db()
-        await conn.execute("""
+        client_id = await conn.fetchval("""
             INSERT INTO clients (imie_nazwisko, telefon, miasto, pojazd, typ, status)
-            VALUES ($1, $2, $3, $4, 'SERWIS', 'AKTYWNY')
+            VALUES ($1, $2, $3, $4, 'SERWIS', 'AKTYWNY') RETURNING id
         """, name, phone, miasto, pojazd)
         await conn.close()
-        await update.message.reply_text(f"✅ Klient {name} dodany!", reply_markup=keyboard(CLIENTS_MENU))
+        
+        # --- СИНХРОНІЗАЦІЯ З EXCEL (Sheet: Klienci) ---
+        try:
+            sheet = get_google_sheet()
+            if sheet:
+                worksheet = sheet.worksheet("Klienci")
+                current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                row = [
+                    client_id,     # ID
+                    current_date,  # Data
+                    name,          # Imię i nazwisko
+                    phone,         # Telefon
+                    miasto,        # Miasto
+                    pojazd,        # Pojazd
+                    "SERWIS",      # Typ
+                    "AKTYWNY"      # Status
+                ]
+                worksheet.append_row(row)
+        except Exception as sheet_err:
+            print(f"Помилка запису Klienci в Google Sheets: {sheet_err}")
+
+        await update.message.reply_text(f"✅ Klient {name} dodany do bazy i Excel!", reply_markup=keyboard(CLIENTS_MENU))
     except Exception as e:
         await update.message.reply_text(f"❌ Błąd: {e}", reply_markup=keyboard(CLIENTS_MENU))
         
@@ -387,8 +462,29 @@ async def f_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     forma = context.user_data['f_forma']
 
     try:
-        await add_finance(kierunek, typ, kategoria, kwota, opis, forma)
-        await update.message.reply_text(f"✅ Zapisano! {typ}: {kwota:.2f} zł", reply_markup=keyboard(FINANCE_MENU))
+        finance_id = await add_finance(kierunek, typ, kategoria, kwota, opis, forma)
+        
+        # --- СИНХРОНІЗАЦІЯ З EXCEL (Sheet: Finanse) ---
+        try:
+            sheet = get_google_sheet()
+            if sheet:
+                worksheet = sheet.worksheet("Finanse")
+                current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                row = [
+                    finance_id,   # ID
+                    current_date, # Data
+                    kierunek,     # Kierunek
+                    typ,          # Typ
+                    kategoria,    # Kategoria
+                    kwota,        # Kwota
+                    forma,        # Forma płatności
+                    opis          # Opis
+                ]
+                worksheet.append_row(row)
+        except Exception as sheet_err:
+            print(f"Помилка запису Finanse в Google Sheets: {sheet_err}")
+
+        await update.message.reply_text(f"✅ Zapisano w bazie i Excel! {typ}: {kwota:.2f} zł", reply_markup=keyboard(FINANCE_MENU))
     except Exception as e:
         await update.message.reply_text(f"❌ Błąd: {e}", reply_markup=keyboard(FINANCE_MENU))
         
@@ -537,7 +633,6 @@ if __name__ == "__main__":
     app.add_handler(finance_conv)
     
     app.add_handler(CommandHandler("start", start_cmd))
-    # ТУТ СИНТАКСИС ВИПРАВЛЕНО (додано callback=)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, callback=handle_message))
     
     app.run_polling()
