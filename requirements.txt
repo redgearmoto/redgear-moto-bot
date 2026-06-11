@@ -1,7 +1,7 @@
-python-telegram-bot==21.1
-asyncpg
-openai
+python-telegram-bot==21.1.1
 fpdf2
 Pillow
 gspread
 google-auth
+asyncpg==0.29.0
+openai==1.14.1
