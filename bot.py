@@ -23,9 +23,10 @@ except Exception:
 # --- КЛІЄНТ GOOGLE SHEETS ---
 def get_google_sheet():
     try:
-        creds_json = os.environ.get("GOOGLE_SHEETS_CREDENTIALS")
+        # Беремо правильну назву змінної зі скриншоту!
+        creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
         if not creds_json:
-            print("Помилка: Змінна GOOGLE_SHEETS_CREDENTIALS не знайдена в Railway")
+            print("Помилка: Змінна GOOGLE_CREDENTIALS_JSON не знайдена в Railway")
             return None
             
         creds_data = json.loads(creds_json)
@@ -34,10 +35,11 @@ def get_google_sheet():
         creds = Credentials.from_service_account_info(creds_data, scopes=scope)
         client = gspread.authorize(creds)
         
-        spreadsheet_id = os.environ.get("SPREADSHEET_ID")
+        # Беремо правильну назву ID таблиці зі скриншоту!
+        spreadsheet_id = os.environ.get("GOOGLE_SHEET_ID")
         return client.open_by_key(spreadsheet_id)
     except Exception as e:
-        print(f"Помилка підключення do Google Sheets: {e}")
+        print(f"Помилка підключення до Google Sheets: {e}")
         return None
 
 
@@ -316,37 +318,39 @@ async def s_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         conn = await get_db()
-        # Отримуємо ID створеного замовлення для Excel
         order_id = await conn.fetchval("""
             INSERT INTO service_orders (klient, telefon, pojazd, rejestracja, usluga, czesci, robocizna, razem, forma_platnosci, status)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'OTWARTE') RETURNING id
         """, klient, telefon, pojazd, rej, usluga, czesci, robocizna, razem, forma)
         await conn.close()
         
-        # --- СИНХРОНІЗАЦІЯ З EXCEL (Sheet: Zlecenia) ---
+        # Запис у Google Sheets (Вкладка має називатися точно 'SERWIS' як на скриншоті)
         try:
             sheet = get_google_sheet()
             if sheet:
-                worksheet = sheet.worksheet("Zlecenia")
+                worksheet = sheet.worksheet("SERWIS")
                 current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Точна структура твоєї таблиці:
+                # ID_ZLECENIA | DATA | KLIENT | POJAZD | REJESTRACJA | PRZEBIEG | USLUGA | CZESCI | ROBOCIZNA | RAZEM | STATUS | FORMA PLATNOSCI | UWAGI
                 row = [
-                    order_id,          # ID
-                    current_date,      # Data
-                    klient,            # Imię i nazwisko
-                    telefon,           # Telefon
-                    pojazd,            # Model
-                    "Motocykl",        # Typ
-                    "W pracy",         # Status
-                    czesci,            # Koszt części
-                    robocizna,         # Robocizna
-                    razem,             # Razem
-                    forma,             # Forma płatności
-                    usluga,            # Komentarz
-                    "Brak"             # Rekomendacje
+                    f"S-{order_id:04d}", # Робимо гарний формат типу S-0012, як у тебе в таблиці
+                    current_date,       # DATA
+                    klient,             # KLIENT
+                    pojazd,             # POJAZD
+                    rej,                # REJESTRACJA
+                    0,                  # PRZEBIEG (ставимо 0, бо в кроках його немає)
+                    usluga,             # USLUGA
+                    czesci,             # CZESCI
+                    robocizna,          # ROBOCIZNA
+                    razem,              # RAZEM
+                    "W TOKU",           # STATUS
+                    forma,              # FORMA PŁATNOŚCI
+                    f"Tel: {telefon}"   # UWAGI (запишемо сюди телефон клієнта)
                 ]
                 worksheet.append_row(row)
         except Exception as sheet_err:
-            print(f"Помилка запису Zlecenia в Google Sheets: {sheet_err}")
+            print(f"Помилка запису SERWIS в Google Sheets: {sheet_err}")
 
         await update.message.reply_text(f"✅ Dodano zlecenie do bazy i Excel!\n👤 {klient} | 💰 {razem:.2f} zł", reply_markup=keyboard(SERVICE_MENU))
     except Exception as e:
@@ -383,6 +387,7 @@ async def c_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     miasto = context.user_data['c_miasto']
 
     try:
+        # 1. Записуємо в базу PostgreSQL
         conn = await get_db()
         client_id = await conn.fetchval("""
             INSERT INTO clients (imie_nazwisko, telefon, miasto, pojazd, typ, status)
@@ -390,23 +395,28 @@ async def c_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """, name, phone, miasto, pojazd)
         await conn.close()
         
-        # --- СИНХРОНІЗАЦІЯ З EXCEL (Sheet: Klienci) ---
+        # 2. Дублюємо в Google Sheets (Вкладка 'KLIENCI')
         try:
             sheet = get_google_sheet()
             if sheet:
-                worksheet = sheet.worksheet("Klienci")
+                # Зверни увагу: назва вкладки має бути точно як в Excel — KLIENCI
+                worksheet = sheet.worksheet("KLIENCI")
                 current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Формуємо рядок під стовпчики твоєї таблиці:
+                # ID_KLIENTA | DATA | IMIE_NAZWISKO | TELEFON | MIASTO | POJAZD | TYP | STATUS
                 row = [
-                    client_id,     # ID
-                    current_date,  # Data
-                    name,          # Imię i nazwisko
-                    phone,         # Telefon
-                    miasto,        # Miasto
-                    pojazd,        # Pojazd
-                    "SERWIS",      # Typ
-                    "AKTYWNY"      # Status
+                    f"K-{client_id:04d}", # Формат клієнта: K-0001, K-0002 і т.д.
+                    current_date,         # DATA
+                    name,                 # IMIE_NAZWISKO
+                    phone,                # TELEFON
+                    miasto,               # MIASTO
+                    pojazd,               # POJAZD
+                    "SERWIS",             # TYP
+                    "AKTYWNY"             # STATUS
                 ]
                 worksheet.append_row(row)
+                print("Клієнта успішно додано в Google Sheets!")
         except Exception as sheet_err:
             print(f"Помилка запису Klienci в Google Sheets: {sheet_err}")
 
