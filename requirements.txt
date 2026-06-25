@@ -5,3 +5,4 @@ gspread
 google-auth
 asyncpg==0.30.0
 openai==1.14.1
+apscheduler==3.10.4
