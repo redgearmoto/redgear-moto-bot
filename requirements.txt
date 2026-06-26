@@ -3,6 +3,6 @@ fpdf2
 Pillow
 gspread
 google-auth
-asyncpg==0.30.0
+asyncpg>=0.30.0
 openai==1.14.1
 apscheduler==3.10.4
