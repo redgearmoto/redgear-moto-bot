@@ -14,8 +14,8 @@ from telegram.ext import (
     filters
 )
 
-TOKEN = os.getenv("BOT_TOKEN")
-DATABASE_URL = os.getenv("DATABASE_URL")
+TOKEN = os.environ.get("BOT_TOKEN")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 S_KLIENT, S_WYBOR, S_POJAZD, S_REJ, S_PRZEBIEG, S_USLUGA, S_CZESCI, S_ROBOCIZNA, S_FORMA, S_UWAGI = range(100, 110)
 C_NAME, C_PHONE, C_TYP, C_STATUS, C_MIASTO, C_UWAGI, C_WIZYTA, C_ZAROBIONO, C_POJAZD = range(200, 209)
@@ -740,7 +740,7 @@ async def sk_przebieg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def sk_serwis_ost(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txt = update.message.text.strip()
     context.user_data['sk_serwis_ost'] = "BRAK" if txt.upper() == "BRAK" else txt
-    await update.message.reply_text("Wpisz następny serwis при:", reply_markup=keyboard([["BRAK"], ["❌ Anuluj"]]))
+    await update.message.reply_text("Wpisz następny serwis:", reply_markup=keyboard([["BRAK"], ["❌ Anuluj"]]))
     return SK_SERWIS_NAST
 
 async def sk_serwis_nast(update: Update, context: ContextTypes.DEFAULT_TYPE):
