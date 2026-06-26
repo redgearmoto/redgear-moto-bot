@@ -906,7 +906,7 @@ async def post_init(app):
     await init_db()
 
 if __name__ == "__main__":
-    app = Application.builder().token(TOKEN).post_init(post_init).build()
+    app = Application.builder().token(TOKEN).job_queue(None).post_init(post_init).build()
     
     serwis_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Text("➕ Nowe zlecenie"), s_start)],
