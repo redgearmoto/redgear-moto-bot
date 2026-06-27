@@ -290,7 +290,7 @@ async def s_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sheet = get_google_sheet()
         if sheet:
             worksheet = sheet.worksheet("SERWIS")
-            row = [f"S-{nid:04d}", dt, klient_name, pojazd, rej, "" if Przebieg=="BRAK" else Przebieg, usluga, czesci, robocizna, razem, "W TOKU", forma, uwagi]
+            row = [f"S-{nid:04d}", dt, klient_name, pojazd, rej, "" if brittle=="BRAK" else przebieg, usluga, czesci, robocizna, razem, "W TOKU", forma, uwagi]
             worksheet.append_row(row)
     except Exception:
         pass
