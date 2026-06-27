@@ -286,13 +286,31 @@ async def s_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id
     """, dt, klient_id, klient_name, pojazd, rej, przebieg, usluga, czesci, robocizna, razem, "W TOKU", forma, uwagi)
     await conn.close()
-    try:
+   try:
         sheet = get_google_sheet()
         if sheet:
+            # Чітко вказуємо назву вкладки великими літерами, як у твоїй таблиці
             worksheet = sheet.worksheet("SERWIS")
-            row = [f"S-{nid:04d}", dt, klient_name, pojazd, rej, "" if brittle=="BRAK" else przebieg, usluga, czesci, robocizna, razem, "W TOKU", forma, uwagi]
+            
+            # Формуємо рядок саме для таблиці SERWIS
+            row = [
+                f"S-{nid:04d}", 
+                dt, 
+                klient_name, 
+                pojazd, 
+                rej, 
+                "" if Przebieg.upper() == "BRAK" else Przebieg, 
+                usluga, 
+                czesci, 
+                robocizna, 
+                razem, 
+                "W TOKU", 
+                forma, 
+                uwagi
+            ]
             worksheet.append_row(row)
-    except Exception:
+    except Exception as e:
+        print(f"Помилка запису в SERWIS: {e}")
         pass
     await update.message.reply_text("Zlecenie dodane pomyślnie!", reply_markup=keyboard(MAIN_MENU))
     context.user_data.clear()
